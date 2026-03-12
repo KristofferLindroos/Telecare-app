@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Telecare Responder - QiAccess Integration Demo</title>
+    
+    <!-- PWA Meta Tags for Native App Experience -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Telecare Responder">
+    <meta name="theme-color" content="#E53E3E">
+    
+    <!-- App Icons for Home Screen -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23E53E3E'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='Arial'>🚨</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23E53E3E'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='Arial'>🚨</text></svg>">
+    
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-red: #E53E3E;
+            --primary-red-dark: #C53030;
+            --accent-blue: #3182CE;
+            --accent-green: #38A169;
+            --bg-gray: #F7FAFC;
+            --border-gray: #E2E8F0;
+            --text-primary: #1A202C;
+            --text-secondary: #4A5568;
+            --text-tertiary: #718096;
+            --white: #FFFFFF;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-primary);
+            /* Support for devices with notches */
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .device-frame {
+            width: 100%;
+            max-width: 412px;
+            height: 892px;
+            background: var(--white);
+            border-radius: 36px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Full screen mode on mobile devices */
+        @media (display-mode: standalone) {
+            body {
+                padding: 0;
+                background: var(--white);
+            }
+            
+            .device-frame {
+                max-width: 100%;
+                height: 100vh;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            
+            .status-bar {
+                padding-top: env(safe-area-inset-top);
+                height: calc(52px + env(safe-area-inset-top));
+            }
+            
+            .home-indicator {
+                bottom: max(8px, env(safe-area-inset-bottom));
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 52px;
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border-gray);
+        }
+
+        .time {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .signal-icon, .wifi-icon, .battery-icon {
+            width: 18px;
+            height: 18px;
+            opacity: 0.6;
+        }
+
+        /* Navigation Bar */
+        .nav-bar {
+            height: 64px;
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid var(--border-gray);
+            padding: 0 20px;
+        }
+
+        .nav-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .menu-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            cursor: pointer;
+        }
+
+        .menu-icon span {
+            width: 100%;
+            height: 2px;
+            background: var(--text-secondary);
+            border-radius: 2px;
+        }
+
+        .nav-title {
+            flex: 1;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-right: 28px;
+        }
+
+        /* Main Content */
+        .main-content {
+            height: calc(892px - 116px);
+            overflow-y: auto;
+            background: var(--bg-gray);
+        }
+
+        /* Screen 1: Alarm List */
+        .alarm-list {
+            padding: 16px;
+        }
+
+        .alarm-card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 4px solid var(--primary-red);
+            animation: fadeInCard 0.5s ease-out backwards;
+        }
+
+        .alarm-card:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .alarm-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        @keyframes fadeInCard {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alarm-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .alarm-type {
+            background: rgba(229, 62, 62, 0.1);
+            color: var(--primary-red);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alarm-time {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .alarm-client {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .alarm-details {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .alarm-detail-row {
+            display: flex;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .alarm-detail-label {
+            color: var(--text-tertiary);
+            min-width: 70px;
+        }
+
+        .alarm-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .btn-accept {
+            background: var(--primary-red);
+            color: var(--white);
+        }
+
+        .btn-accept:hover {
+            background: var(--primary-red-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+        }
+
+        .btn-reject {
+            background: var(--border-gray);
+            color: var(--text-secondary);
+        }
+
+        .btn-reject:hover {
+            background: #CBD5E0;
+        }
+
+        /* Screen 2: Alarm Detail */
+        .alarm-detail-screen {
+            display: none;
+            padding: 24px 16px;
+        }
+
+        .alarm-detail-screen.active {
+            display: block;
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .detail-card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border-gray);
+        }
+
+        .alarm-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary-red) 0%, #F56565 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 28px;
+            box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+        }
+
+        .detail-title-group {
+            flex: 1;
+        }
+
+        .detail-type {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-red);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .detail-client-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .info-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-primary {
+            background: var(--primary-red);
+            color: var(--white);
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-red-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(229, 62, 62, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--text-primary);
+            padding: 16px;
+            border: 2px solid var(--border-gray);
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-tertiary);
+            background: var(--bg-gray);
+        }
+
+        /* Screen 3: Access Options */
+        .access-screen {
+            display: none;
+            padding: 24px 16px;
+        }
+
+        .access-screen.active {
+            display: block;
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .success-banner {
+            background: linear-gradient(135deg, var(--accent-green) 0%, #48BB78 100%);
+            color: var(--white);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);
+            animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .success-banner h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .success-banner p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .qiaccess-card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-md);
+            border: 2px solid var(--accent-blue);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .qiaccess-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-blue) 0%, #4299E1 100%);
+        }
+
+        .qiaccess-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .qiaccess-logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #4299E1 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 24px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+        }
+
+        .qiaccess-title {
+            flex: 1;
+        }
+
+        .qiaccess-title h4 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .qiaccess-title p {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        .access-info {
+            background: var(--bg-gray);
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .access-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-gray);
+        }
+
+        .access-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .access-info-label {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        .access-info-value {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .btn-qiaccess {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #4299E1 100%);
+            color: var(--white);
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'DM Sans', sans-serif;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+        }
+
+        .btn-qiaccess:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(49, 130, 206, 0.4);
+        }
+
+        .btn-qiaccess:active {
+            transform: scale(0.98);
+        }
+
+        .deeplink-icon {
+            font-size: 20px;
+        }
+
+        .note {
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(49, 130, 206, 0.1);
+            border-left: 3px solid var(--accent-blue);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Utility Classes */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Menu Drawer */
+        .menu-drawer {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 320px;
+            height: 100%;
+            background: var(--white);
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.15);
+            transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 900;
+            overflow-y: auto;
+        }
+
+        .menu-drawer.open {
+            left: 0;
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 899;
+        }
+
+        .menu-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .menu-header {
+            padding: 24px 20px;
+            background: linear-gradient(135deg, var(--primary-red) 0%, #F56565 100%);
+            color: var(--white);
+        }
+
+        .menu-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .menu-avatar {
+            width: 56px;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .menu-user-details h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .menu-user-details p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .menu-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(56, 161, 105, 0.9);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--white);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .menu-items {
+            padding: 12px 0;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-gray);
+            border-left-color: var(--primary-red);
+        }
+
+        .menu-item-icon {
+            width: 24px;
+            height: 24px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .menu-item-text {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: var(--border-gray);
+            margin: 8px 0;
+        }
+
+        .menu-section-title {
+            padding: 16px 20px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Configuration Screen */
+        .config-screen {
+            display: none;
+            padding: 24px 16px;
+            height: calc(892px - 116px);
+            overflow-y: auto;
+        }
+
+        .config-screen.active {
+            display: block;
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .config-section {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .config-section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .config-section-title-icon {
+            font-size: 20px;
+        }
+
+        .config-field {
+            margin-bottom: 16px;
+        }
+
+        .config-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .config-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-gray);
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: 'DM Sans', sans-serif;
+            transition: border-color 0.2s;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .config-textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        .config-select {
+            appearance: none;
+            background: var(--white) url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%234A5568' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+            padding-right: 36px;
+        }
+
+        .config-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-save {
+            flex: 1;
+            background: var(--accent-green);
+            color: var(--white);
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .btn-save:hover {
+            background: #2F855A;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background: var(--border-gray);
+            color: var(--text-primary);
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .btn-cancel:hover {
+            background: #CBD5E0;
+        }
+
+        .alarm-config-item {
+            background: var(--bg-gray);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--primary-red);
+        }
+
+        .alarm-config-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .alarm-config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .alarm-config-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .btn-remove-alarm {
+            background: var(--primary-red);
+            color: var(--white);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-remove-alarm:hover {
+            background: var(--primary-red-dark);
+        }
+
+        .btn-add-alarm {
+            width: 100%;
+            background: var(--accent-blue);
+            color: var(--white);
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-add-alarm:hover {
+            background: #2C5282;
+        }
+
+        .config-note {
+            background: rgba(49, 130, 206, 0.1);
+            border-left: 3px solid var(--accent-blue);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-top: 12px;
+        }
+
+        /* Bottom nav indicator */
+        .home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 134px;
+            height: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 100px;
+        }
+
+        /* Deeplink simulation overlay */
+        .deeplink-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s;
+        }
+
+        .deeplink-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .deeplink-content {
+            background: var(--white);
+            padding: 32px;
+            border-radius: 20px;
+            max-width: 360px;
+            text-align: center;
+            animation: scaleIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .deeplink-icon-large {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #4299E1 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: var(--white);
+            font-size: 40px;
+            font-weight: 700;
+            box-shadow: 0 8px 24px rgba(49, 130, 206, 0.4);
+        }
+
+        .deeplink-content h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .deeplink-content p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .deeplink-details {
+            background: var(--bg-gray);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .deeplink-details p {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .deeplink-details p:last-child {
+            margin-bottom: 0;
+        }
+
+        .deeplink-label {
+            font-weight: 600;
+            color: var(--text-tertiary);
+        }
+
+        .btn-close {
+            background: var(--border-gray);
+            color: var(--text-primary);
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .btn-close:hover {
+            background: #CBD5E0;
+        }
+    </style>
+</head>
+<body>
+    <div class="device-frame">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="time">9:41</div>
+            <div class="status-icons">
+                <svg class="signal-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="2" y="14" width="4" height="8" opacity="0.3"/>
+                    <rect x="8" y="10" width="4" height="12" opacity="0.6"/>
+                    <rect x="14" y="6" width="4" height="16" opacity="0.9"/>
+                    <rect x="20" y="2" width="4" height="20"/>
+                </svg>
+                <svg class="wifi-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                </svg>
+                <svg class="battery-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
+                    <rect x="21" y="9" width="2" height="6" rx="1"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Navigation Bar -->
+        <div class="nav-bar">
+            <div class="nav-content">
+                <div class="menu-icon" onclick="toggleMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div class="nav-title">Alarms</div>
+            </div>
+        </div>
+
+        <!-- Menu Drawer -->
+        <div class="menu-drawer" id="menuDrawer">
+            <div class="menu-header">
+                <div class="menu-user-info">
+                    <div class="menu-avatar">JD</div>
+                    <div class="menu-user-details">
+                        <h3>John Davies</h3>
+                        <p>Responder #R-2841</p>
+                    </div>
+                </div>
+                <div class="menu-status">
+                    <span class="status-dot"></span>
+                    <span>On Duty</span>
+                </div>
+            </div>
+
+            <div class="menu-items">
+                <div class="menu-item" onclick="closeMenu(); showAlarmList();">
+                    <div class="menu-item-icon">🚨</div>
+                    <div class="menu-item-text">Active Alarms</div>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-icon">📋</div>
+                    <div class="menu-item-text">My Responses</div>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-icon">📊</div>
+                    <div class="menu-item-text">Statistics</div>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-icon">📅</div>
+                    <div class="menu-item-text">Schedule</div>
+                </div>
+
+                <div class="menu-divider"></div>
+
+                <div class="menu-section-title">App Settings</div>
+                <div class="menu-item" onclick="closeMenu(); showConfiguration();">
+                    <div class="menu-item-icon">⚙️</div>
+                    <div class="menu-item-text">Configuration</div>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-icon">🔔</div>
+                    <div class="menu-item-text">Notifications</div>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-icon">👤</div>
+                    <div class="menu-item-text">Profile</div>
+                </div>
+
+                <div class="menu-divider"></div>
+
+                <div class="menu-item">
+                    <div class="menu-item-icon">❓</div>
+                    <div class="menu-item-text">Help & Support</div>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-icon">🚪</div>
+                    <div class="menu-item-text">Log Out</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"></div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Screen 1: Alarm List -->
+            <div class="alarm-list" id="screen1">
+                <div class="alarm-card" onclick="showAlarmDetail()">
+                    <div class="alarm-header">
+                        <div class="alarm-type">Emergency</div>
+                        <div class="alarm-time">09:34</div>
+                    </div>
+                    <div class="alarm-client">Margaret Thompson</div>
+                    <div class="alarm-details">
+                        <div class="alarm-detail-row">
+                            <span class="alarm-detail-label">Address:</span>
+                            <span>45 Oakwood Drive, Manchester</span>
+                        </div>
+                        <div class="alarm-detail-row">
+                            <span class="alarm-detail-label">Alert:</span>
+                            <span>Fall detected</span>
+                        </div>
+                        <div class="alarm-detail-row">
+                            <span class="alarm-detail-label">Priority:</span>
+                            <span style="color: var(--primary-red); font-weight: 600;">High</span>
+                        </div>
+                    </div>
+                    <div class="alarm-actions">
+                        <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetail()">Accept</button>
+                        <button class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>
+                    </div>
+                </div>
+
+                <div class="alarm-card" style="border-left-color: #F6AD55;" onclick="showAlarmDetail2()">
+                    <div class="alarm-header">
+                        <div class="alarm-type" style="background: rgba(246, 173, 85, 0.1); color: #DD6B20;">Check-in</div>
+                        <div class="alarm-time">08:52</div>
+                    </div>
+                    <div class="alarm-client">Robert Williams</div>
+                    <div class="alarm-details">
+                        <div class="alarm-detail-row">
+                            <span class="alarm-detail-label">Address:</span>
+                            <span>12 Riverside Court, Leeds</span>
+                        </div>
+                        <div class="alarm-detail-row">
+                            <span class="alarm-detail-label">Alert:</span>
+                            <span>Missed daily check-in</span>
+                        </div>
+                        <div class="alarm-detail-row">
+                            <span class="alarm-detail-label">Priority:</span>
+                            <span style="color: #DD6B20; font-weight: 600;">Medium</span>
+                        </div>
+                    </div>
+                    <div class="alarm-actions">
+                        <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetail2()">Accept</button>
+                        <button class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screen 2: Alarm Detail -->
+            <div class="alarm-detail-screen" id="screen2">
+                <div class="detail-card">
+                    <div class="detail-header">
+                        <div class="alarm-icon">⚠️</div>
+                        <div class="detail-title-group">
+                            <div class="detail-type">Emergency Alert</div>
+                            <div class="detail-client-name">Margaret Thompson</div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Alert Type</div>
+                            <div class="info-value">Fall detected</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Time Received</div>
+                            <div class="info-value">Today, 09:34 AM</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Address</div>
+                            <div class="info-value">45 Oakwood Drive, Manchester, M15 4QR</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Client ID</div>
+                            <div class="info-value">TC-2047</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Priority Level</div>
+                            <div class="info-value" style="color: var(--primary-red);">High - Immediate Response Required</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Medical Conditions</div>
+                            <div class="info-value">Osteoporosis, Hypertension</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="showAccessScreen('TC-2047', 'Margaret Thompson', '45 Oakwood Drive, Manchester')">Respond to Alarm</button>
+                    <button class="btn-secondary" onclick="showAlarmList()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Screen 2B: Alarm Detail for Robert Williams -->
+            <div class="alarm-detail-screen" id="screen2b">
+                <div class="detail-card">
+                    <div class="detail-header">
+                        <div class="alarm-icon" style="background: linear-gradient(135deg, #F6AD55 0%, #ED8936 100%); box-shadow: 0 4px 12px rgba(246, 173, 85, 0.3);">📋</div>
+                        <div class="detail-title-group">
+                            <div class="detail-type" style="color: #DD6B20;">Check-in Alert</div>
+                            <div class="detail-client-name">Robert Williams</div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Alert Type</div>
+                            <div class="info-value">Missed daily check-in</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Time Received</div>
+                            <div class="info-value">Today, 08:52 AM</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Address</div>
+                            <div class="info-value">12 Riverside Court, Leeds, LS1 6PL</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Client ID</div>
+                            <div class="info-value">TC-3821</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Priority Level</div>
+                            <div class="info-value" style="color: #DD6B20;">Medium - Welfare Check Required</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Medical Conditions</div>
+                            <div class="info-value">Diabetes Type 2, Mobility Issues</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Last Contact</div>
+                            <div class="info-value">Yesterday, 6:30 PM</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="showAccessScreen('TC-3821', 'Robert Williams', '12 Riverside Court, Leeds')">Respond to Alarm</button>
+                    <button class="btn-secondary" onclick="showAlarmList()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Screen 3: Access Options -->
+            <div class="access-screen" id="screen3">
+                <div class="success-banner">
+                    <h3>✓ Alarm Accepted</h3>
+                    <p>You are now responding to this emergency</p>
+                </div>
+
+                <div class="detail-card" style="margin-bottom: 20px;">
+                    <div class="info-item">
+                        <div class="info-label">Client Name</div>
+                        <div class="info-value" id="clientName">Margaret Thompson</div>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="info-item">
+                        <div class="info-label">Location</div>
+                        <div class="info-value" id="clientAddress">45 Oakwood Drive, Manchester</div>
+                    </div>
+                </div>
+
+                <div class="qiaccess-card">
+                    <div class="qiaccess-header">
+                        <div class="qiaccess-logo">Qi</div>
+                        <div class="qiaccess-title">
+                            <h4>QiAccess Integration</h4>
+                            <p>Secure access control system</p>
+                        </div>
+                    </div>
+
+                    <div class="access-info">
+                        <div class="access-info-row">
+                            <span class="access-info-label">Access Type</span>
+                            <span class="access-info-value">Emergency Entry</span>
+                        </div>
+                        <div class="access-info-row">
+                            <span class="access-info-label">Property</span>
+                            <span class="access-info-value" id="accessProperty">45 Oakwood Drive</span>
+                        </div>
+                        <div class="access-info-row">
+                            <span class="access-info-label">Valid Until</span>
+                            <span class="access-info-value">11:34 AM (2 hours)</span>
+                        </div>
+                    </div>
+
+                    <button class="btn-qiaccess" onclick="triggerDeeplink()">
+                        <span class="deeplink-icon">🔓</span>
+                        <span>Open QiAccess for Entry</span>
+                    </button>
+
+                    <div class="note">
+                        <strong>Note:</strong> This will open the QiAccess app and grant temporary access credentials for emergency response at the client's location.
+                    </div>
+                </div>
+
+                <div class="action-buttons" style="margin-top: 20px;">
+                    <button class="btn-secondary" onclick="showAlarmList()">Return to Alarms</button>
+                </div>
+            </div>
+
+            <!-- Configuration Screen -->
+            <div class="config-screen" id="configScreen">
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <span class="config-section-title-icon">🌍</span>
+                        <span>General Settings</span>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Country/Region</label>
+                        <select class="config-input config-select" id="configCountry">
+                            <option value="UK">United Kingdom</option>
+                            <option value="US">United States</option>
+                            <option value="SE">Sweden</option>
+                            <option value="DE">Germany</option>
+                            <option value="FR">France</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Time Format</label>
+                        <select class="config-input config-select" id="configTimeFormat">
+                            <option value="12h">12-hour (09:34 AM)</option>
+                            <option value="24h">24-hour (09:34)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <span class="config-section-title-icon">🚨</span>
+                        <span>Alarm Configuration</span>
+                    </div>
+                    <div id="alarmsConfigContainer">
+                        <!-- Alarm 1 -->
+                        <div class="alarm-config-item" data-alarm-index="0">
+                            <div class="alarm-config-header">
+                                <div class="alarm-config-title">Alarm 1</div>
+                                <button class="btn-remove-alarm" onclick="removeAlarm(0)">Remove</button>
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Client Name</label>
+                                <input type="text" class="config-input alarm-client-name" value="Margaret Thompson" placeholder="Enter client name">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Client ID</label>
+                                <input type="text" class="config-input alarm-client-id" value="TC-2047" placeholder="e.g., TC-2047">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Alert Type</label>
+                                <input type="text" class="config-input alarm-alert-type" value="Fall detected" placeholder="e.g., Fall detected">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Address</label>
+                                <input type="text" class="config-input alarm-address" value="45 Oakwood Drive, Manchester, M15 4QR" placeholder="Full address">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Priority Level</label>
+                                <select class="config-input config-select alarm-priority">
+                                    <option value="high" selected>High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Medical Conditions</label>
+                                <input type="text" class="config-input alarm-medical" value="Osteoporosis, Hypertension" placeholder="e.g., Diabetes, Hypertension">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Deeplink Command</label>
+                                <textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-2047">qiaccess://client/TC-2047</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Alarm 2 -->
+                        <div class="alarm-config-item" data-alarm-index="1" style="border-left-color: #F6AD55;">
+                            <div class="alarm-config-header">
+                                <div class="alarm-config-title">Alarm 2</div>
+                                <button class="btn-remove-alarm" onclick="removeAlarm(1)">Remove</button>
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Client Name</label>
+                                <input type="text" class="config-input alarm-client-name" value="Robert Williams" placeholder="Enter client name">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Client ID</label>
+                                <input type="text" class="config-input alarm-client-id" value="TC-3821" placeholder="e.g., TC-3821">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Alert Type</label>
+                                <input type="text" class="config-input alarm-alert-type" value="Missed daily check-in" placeholder="e.g., Missed check-in">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Address</label>
+                                <input type="text" class="config-input alarm-address" value="12 Riverside Court, Leeds, LS1 6PL" placeholder="Full address">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Priority Level</label>
+                                <select class="config-input config-select alarm-priority">
+                                    <option value="high">High</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Medical Conditions</label>
+                                <input type="text" class="config-input alarm-medical" value="Diabetes Type 2, Mobility Issues" placeholder="e.g., Diabetes, Mobility Issues">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Deeplink Command</label>
+                                <textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-3821">qiaccess://client/TC-3821</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-add-alarm" onclick="addAlarm()">
+                        <span>➕</span>
+                        <span>Add New Alarm</span>
+                    </button>
+
+                    <div class="config-note">
+                        <strong>Note:</strong> Changes will update the alarm list in real-time. The deeplink command will be used when opening QiAccess for each specific client.
+                    </div>
+                </div>
+
+                <div class="config-actions">
+                    <button class="btn-save" onclick="saveConfiguration()">Save Changes</button>
+                    <button class="btn-cancel" onclick="cancelConfiguration()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Indicator -->
+        <div class="home-indicator"></div>
+    </div>
+
+    <!-- Deeplink Simulation Overlay -->
+    <div class="deeplink-overlay" id="deeplinkOverlay">
+        <div class="deeplink-content">
+            <div class="deeplink-icon-large">Qi</div>
+            <h2>QiAccess Opened</h2>
+            <p>The deeplink has successfully triggered the QiAccess app with client access credentials.</p>
+            
+            <div class="deeplink-details">
+                <p><span class="deeplink-label">Deeplink URL:</span><br><span id="deeplinkUrl">qiaccess://client/TC-2047</span></p>
+                <p><span class="deeplink-label">Client ID:</span> <span id="deeplinkClientId">TC-2047</span></p>
+                <p><span class="deeplink-label">Access Level:</span> Emergency</p>
+                <p><span class="deeplink-label">Property:</span> <span id="deeplinkProperty">45 Oakwood Drive</span></p>
+            </div>
+
+            <button class="btn-close" onclick="closeDeeplink()">Close Demo</button>
+        </div>
+    </div>
+
+    <script>
+        let currentClientId = '';
+        let currentClientName = '';
+        let currentAddress = '';
+        let currentDeeplink = '';
+        let alarmData = [];
+
+        // Initialize alarm data from DOM on page load
+        function initializeAlarmData() {
+            alarmData = [];
+            const alarmConfigItems = document.querySelectorAll('.alarm-config-item');
+            alarmConfigItems.forEach((item, index) => {
+                const data = {
+                    name: item.querySelector('.alarm-client-name').value,
+                    clientId: item.querySelector('.alarm-client-id').value,
+                    alertType: item.querySelector('.alarm-alert-type').value,
+                    address: item.querySelector('.alarm-address').value,
+                    priority: item.querySelector('.alarm-priority').value,
+                    medical: item.querySelector('.alarm-medical').value,
+                    deeplink: item.querySelector('.alarm-deeplink').value
+                };
+                alarmData.push(data);
+            });
+        }
+
+        // Menu functions
+        function toggleMenu() {
+            const drawer = document.getElementById('menuDrawer');
+            const overlay = document.getElementById('menuOverlay');
+            drawer.classList.toggle('open');
+            overlay.classList.toggle('active');
+        }
+
+        function closeMenu() {
+            const drawer = document.getElementById('menuDrawer');
+            const overlay = document.getElementById('menuOverlay');
+            drawer.classList.remove('open');
+            overlay.classList.remove('active');
+        }
+
+        // Configuration functions
+        function showConfiguration() {
+            initializeAlarmData();
+            hideAllScreens();
+            document.getElementById('configScreen').classList.add('active');
+            document.querySelector('.nav-title').textContent = 'Configuration';
+        }
+
+        function cancelConfiguration() {
+            showAlarmList();
+        }
+
+        function saveConfiguration() {
+            // Update alarm data from config form
+            const alarmConfigItems = document.querySelectorAll('.alarm-config-item');
+            alarmData = [];
+            
+            alarmConfigItems.forEach((item) => {
+                const data = {
+                    name: item.querySelector('.alarm-client-name').value,
+                    clientId: item.querySelector('.alarm-client-id').value,
+                    alertType: item.querySelector('.alarm-alert-type').value,
+                    address: item.querySelector('.alarm-address').value,
+                    priority: item.querySelector('.alarm-priority').value,
+                    medical: item.querySelector('.alarm-medical').value,
+                    deeplink: item.querySelector('.alarm-deeplink').value
+                };
+                alarmData.push(data);
+            });
+
+            // Rebuild alarm list
+            rebuildAlarmList();
+            
+            // Show success message
+            alert('Configuration saved successfully!');
+            
+            // Return to alarm list
+            showAlarmList();
+        }
+
+        function rebuildAlarmList() {
+            const alarmListContainer = document.getElementById('screen1');
+            alarmListContainer.innerHTML = '';
+
+            alarmData.forEach((alarm, index) => {
+                const priorityColor = alarm.priority === 'high' ? '#E53E3E' : 
+                                     alarm.priority === 'medium' ? '#F6AD55' : '#48BB78';
+                const priorityBgColor = alarm.priority === 'high' ? 'rgba(229, 62, 62, 0.1)' : 
+                                       alarm.priority === 'medium' ? 'rgba(246, 173, 85, 0.1)' : 
+                                       'rgba(56, 161, 105, 0.1)';
+                const priorityLabel = alarm.priority.charAt(0).toUpperCase() + alarm.priority.slice(1);
+                
+                const card = `
+                    <div class="alarm-card" style="border-left-color: ${priorityColor};" onclick="showAlarmDetailDynamic(${index})">
+                        <div class="alarm-header">
+                            <div class="alarm-type" style="background: ${priorityBgColor}; color: ${priorityColor};">${alarm.alertType}</div>
+                            <div class="alarm-time">09:34</div>
+                        </div>
+                        <div class="alarm-client">${alarm.name}</div>
+                        <div class="alarm-details">
+                            <div class="alarm-detail-row">
+                                <span class="alarm-detail-label">Address:</span>
+                                <span>${alarm.address.split(',')[0]}</span>
+                            </div>
+                            <div class="alarm-detail-row">
+                                <span class="alarm-detail-label">Alert:</span>
+                                <span>${alarm.alertType}</span>
+                            </div>
+                            <div class="alarm-detail-row">
+                                <span class="alarm-detail-label">Priority:</span>
+                                <span style="color: ${priorityColor}; font-weight: 600;">${priorityLabel}</span>
+                            </div>
+                        </div>
+                        <div class="alarm-actions">
+                            <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetailDynamic(${index})">Accept</button>
+                            <button class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>
+                        </div>
+                    </div>
+                `;
+                alarmListContainer.innerHTML += card;
+            });
+        }
+
+        function addAlarm() {
+            const container = document.getElementById('alarmsConfigContainer');
+            const newIndex = document.querySelectorAll('.alarm-config-item').length;
+            
+            const newAlarmHtml = `
+                <div class="alarm-config-item" data-alarm-index="${newIndex}">
+                    <div class="alarm-config-header">
+                        <div class="alarm-config-title">Alarm ${newIndex + 1}</div>
+                        <button class="btn-remove-alarm" onclick="removeAlarm(${newIndex})">Remove</button>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Client Name</label>
+                        <input type="text" class="config-input alarm-client-name" value="" placeholder="Enter client name">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Client ID</label>
+                        <input type="text" class="config-input alarm-client-id" value="" placeholder="e.g., TC-0000">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Alert Type</label>
+                        <input type="text" class="config-input alarm-alert-type" value="" placeholder="e.g., Emergency alert">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Address</label>
+                        <input type="text" class="config-input alarm-address" value="" placeholder="Full address">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Priority Level</label>
+                        <select class="config-input config-select alarm-priority">
+                            <option value="high">High</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Medical Conditions</label>
+                        <input type="text" class="config-input alarm-medical" value="" placeholder="e.g., Diabetes, Hypertension">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label">Deeplink Command</label>
+                        <textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-0000"></textarea>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', newAlarmHtml);
+        }
+
+        function removeAlarm(index) {
+            const items = document.querySelectorAll('.alarm-config-item');
+            if (items.length <= 1) {
+                alert('You must have at least one alarm configured.');
+                return;
+            }
+            
+            if (confirm('Are you sure you want to remove this alarm?')) {
+                items[index].remove();
+                // Re-index remaining alarms
+                document.querySelectorAll('.alarm-config-item').forEach((item, i) => {
+                    item.setAttribute('data-alarm-index', i);
+                    item.querySelector('.alarm-config-title').textContent = `Alarm ${i + 1}`;
+                    item.querySelector('.btn-remove-alarm').setAttribute('onclick', `removeAlarm(${i})`);
+                });
+            }
+        }
+
+        // Navigation functions
+        function hideAllScreens() {
+            document.getElementById('screen1').classList.add('hidden');
+            document.getElementById('screen2').classList.add('hidden');
+            document.getElementById('screen2').classList.remove('active');
+            document.getElementById('screen2b').classList.add('hidden');
+            document.getElementById('screen2b').classList.remove('active');
+            document.getElementById('screen3').classList.add('hidden');
+            document.getElementById('screen3').classList.remove('active');
+            document.getElementById('configScreen').classList.remove('active');
+        }
+
+        function showAlarmDetail() {
+            if (alarmData.length === 0) initializeAlarmData();
+            
+            currentClientId = alarmData[0].clientId;
+            currentClientName = alarmData[0].name;
+            currentAddress = alarmData[0].address;
+            currentDeeplink = alarmData[0].deeplink;
+            
+            hideAllScreens();
+            document.getElementById('screen2').classList.remove('hidden');
+            document.getElementById('screen2').classList.add('active');
+            document.querySelector('.nav-title').textContent = 'Alarm Detail';
+        }
+
+        function showAlarmDetail2() {
+            if (alarmData.length === 0) initializeAlarmData();
+            
+            currentClientId = alarmData[1].clientId;
+            currentClientName = alarmData[1].name;
+            currentAddress = alarmData[1].address;
+            currentDeeplink = alarmData[1].deeplink;
+            
+            hideAllScreens();
+            document.getElementById('screen2b').classList.remove('hidden');
+            document.getElementById('screen2b').classList.add('active');
+            document.querySelector('.nav-title').textContent = 'Alarm Detail';
+        }
+
+        function showAlarmDetailDynamic(index) {
+            if (alarmData.length === 0) initializeAlarmData();
+            
+            const alarm = alarmData[index];
+            currentClientId = alarm.clientId;
+            currentClientName = alarm.name;
+            currentAddress = alarm.address;
+            currentDeeplink = alarm.deeplink;
+            
+            // Use screen2 for first alarm, screen2b for second
+            if (index === 0) {
+                showAlarmDetail();
+            } else if (index === 1) {
+                showAlarmDetail2();
+            } else {
+                // For additional alarms, reuse screen2 but update content
+                showAlarmDetail();
+            }
+        }
+
+        function showAccessScreen(clientId, clientName, address) {
+            currentClientId = clientId || currentClientId;
+            currentClientName = clientName || currentClientName;
+            currentAddress = address || currentAddress;
+            
+            // Update the access screen with current client data
+            document.getElementById('clientName').textContent = currentClientName;
+            document.getElementById('clientAddress').textContent = currentAddress;
+            document.getElementById('accessProperty').textContent = currentAddress.split(',')[0];
+            
+            hideAllScreens();
+            document.getElementById('screen3').classList.remove('hidden');
+            document.getElementById('screen3').classList.add('active');
+            document.querySelector('.nav-title').textContent = 'Access Client';
+        }
+
+        function showAlarmList() {
+            hideAllScreens();
+            document.getElementById('screen1').classList.remove('hidden');
+            document.querySelector('.nav-title').textContent = 'Alarms';
+        }
+
+        function triggerDeeplink() {
+            // Update deeplink overlay with current client data
+            document.getElementById('deeplinkClientId').textContent = currentClientId;
+            document.getElementById('deeplinkProperty').textContent = currentAddress.split(',')[0];
+            document.getElementById('deeplinkUrl').textContent = currentDeeplink;
+            
+            document.getElementById('deeplinkOverlay').classList.add('active');
+            
+            // In a real implementation, this would trigger:
+            // window.location.href = currentDeeplink;
+            
+            console.log(`Deeplink triggered: ${currentDeeplink}`);
+        }
+
+        function closeDeeplink() {
+            document.getElementById('deeplinkOverlay').classList.remove('active');
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            initializeAlarmData();
+        });
+    </script>
+</body>
+</html>

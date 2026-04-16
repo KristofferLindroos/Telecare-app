@@ -40,21 +40,26 @@
             --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
         }
 
+        html {
+            height: 100%;
+        }
+
         body {
             font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--white);
-            min-height: 100vh;
+            height: 100%;
             margin: 0;
             padding: 0;
             color: var(--text-primary);
-            /* Support for devices with notches */
-            padding-top: env(safe-area-inset-top);
+            overflow: hidden;
             padding-bottom: env(safe-area-inset-bottom);
+            box-sizing: border-box;
         }
 
         .device-frame {
             width: 100%;
-            height: 100vh;
+            height: 100%;
+            min-height: 0;
             background: var(--white);
             overflow: hidden;
             position: relative;
@@ -64,15 +69,24 @@
 
         /* Status Bar - REMOVED (using device's native status bar) */
 
-        /* Navigation Bar */
+        /* Navigation Bar — fixed below status safe area so it stays visible while content scrolls */
         .nav-bar {
-            height: 64px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 850;
             background: var(--white);
+            border-bottom: 1px solid var(--border-gray);
+            padding: env(safe-area-inset-top) 20px 0;
+            box-sizing: border-box;
+        }
+
+        .nav-bar-inner {
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-bottom: 1px solid var(--border-gray);
-            padding: 0 20px;
         }
 
         .nav-content {
@@ -106,12 +120,14 @@
             margin-right: 28px;
         }
 
-        /* Main Content */
+        /* Main Content — offset for fixed nav + top safe area */
         .main-content {
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
             background: var(--bg-gray);
             -webkit-overflow-scrolling: touch;
+            padding-top: calc(64px + env(safe-area-inset-top));
         }
 
         /* Screen 1: Alarm List */
@@ -922,13 +938,15 @@
     <div class="device-frame">
         <!-- Navigation Bar -->
         <div class="nav-bar">
-            <div class="nav-content">
-                <div class="menu-icon" onclick="toggleMenu()">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+            <div class="nav-bar-inner">
+                <div class="nav-content">
+                    <div class="menu-icon" onclick="toggleMenu()">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <div class="nav-title">Alarms</div>
                 </div>
-                <div class="nav-title">Alarms</div>
             </div>
         </div>
 
@@ -1001,7 +1019,7 @@
         <div class="main-content">
             <!-- Screen 1: Alarm List -->
             <div class="alarm-list" id="screen1">
-                <div class="alarm-card" onclick="showAlarmDetail()">
+                <div class="alarm-card" onclick="showAlarmDetailForIndex(0)">
                     <div class="alarm-header">
                         <div class="alarm-type">Emergency</div>
                         <div class="alarm-time">09:34</div>
@@ -1022,12 +1040,12 @@
                         </div>
                     </div>
                     <div class="alarm-actions">
-                        <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetail()">Accept</button>
+                        <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetailForIndex(0)">Accept</button>
                         <button class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>
                     </div>
                 </div>
 
-                <div class="alarm-card" style="border-left-color: #F6AD55;" onclick="showAlarmDetail2()">
+                <div class="alarm-card" style="border-left-color: #F6AD55;" onclick="showAlarmDetailForIndex(1)">
                     <div class="alarm-header">
                         <div class="alarm-type" style="background: rgba(246, 173, 85, 0.1); color: #DD6B20;">Check-in</div>
                         <div class="alarm-time">08:52</div>
@@ -1048,102 +1066,57 @@
                         </div>
                     </div>
                     <div class="alarm-actions">
-                        <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetail2()">Accept</button>
+                        <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetailForIndex(1)">Accept</button>
                         <button class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Screen 2: Alarm Detail -->
+            <!-- Screen 2: Alarm Detail (filled from alarmData) -->
             <div class="alarm-detail-screen" id="screen2">
                 <div class="detail-card">
                     <div class="detail-header">
-                        <div class="alarm-icon">⚠️</div>
+                        <div class="alarm-icon" id="detailAlarmIcon">⚠️</div>
                         <div class="detail-title-group">
-                            <div class="detail-type">Emergency Alert</div>
-                            <div class="detail-client-name">Margaret Thompson</div>
+                            <div class="detail-type" id="detailCategory">Alert</div>
+                            <div class="detail-client-name" id="detailClientName">—</div>
                         </div>
                     </div>
-                    
+
                     <div class="info-grid">
                         <div class="info-item">
                             <div class="info-label">Alert Type</div>
-                            <div class="info-value">Fall detected</div>
+                            <div class="info-value" id="detailAlertType">—</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Time Received</div>
-                            <div class="info-value">Today, 09:34 AM</div>
+                            <div class="info-value" id="detailTimeReceived">—</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Address</div>
-                            <div class="info-value">45 Oakwood Drive, Manchester, M15 4QR</div>
+                            <div class="info-value" id="detailAddress">—</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Client ID</div>
-                            <div class="info-value">TC-2047</div>
+                            <div class="info-value" id="detailClientId">—</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Priority Level</div>
-                            <div class="info-value" style="color: var(--primary-red);">High - Immediate Response Required</div>
+                            <div class="info-value" id="detailPriority">—</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Medical Conditions</div>
-                            <div class="info-value">Osteoporosis, Hypertension</div>
+                            <div class="info-value" id="detailMedical">—</div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="action-buttons">
-                    <button class="btn-primary" onclick="showAccessScreen('TC-2047', 'Margaret Thompson', '45 Oakwood Drive, Manchester')">Respond to Alarm</button>
-                    <button class="btn-secondary" onclick="showAlarmList()">Cancel</button>
-                </div>
-            </div>
-
-            <!-- Screen 2B: Alarm Detail for Robert Williams -->
-            <div class="alarm-detail-screen" id="screen2b">
-                <div class="detail-card">
-                    <div class="detail-header">
-                        <div class="alarm-icon" style="background: linear-gradient(135deg, #F6AD55 0%, #ED8936 100%); box-shadow: 0 4px 12px rgba(246, 173, 85, 0.3);">📋</div>
-                        <div class="detail-title-group">
-                            <div class="detail-type" style="color: #DD6B20;">Check-in Alert</div>
-                            <div class="detail-client-name">Robert Williams</div>
-                        </div>
-                    </div>
-                    
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <div class="info-label">Alert Type</div>
-                            <div class="info-value">Missed daily check-in</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Time Received</div>
-                            <div class="info-value">Today, 08:52 AM</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Address</div>
-                            <div class="info-value">12 Riverside Court, Leeds, LS1 6PL</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Client ID</div>
-                            <div class="info-value">TC-3821</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Priority Level</div>
-                            <div class="info-value" style="color: #DD6B20;">Medium - Welfare Check Required</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Medical Conditions</div>
-                            <div class="info-value">Diabetes Type 2, Mobility Issues</div>
-                        </div>
-                        <div class="info-item">
+                        <div class="info-item hidden" id="detailLastContactRow">
                             <div class="info-label">Last Contact</div>
-                            <div class="info-value">Yesterday, 6:30 PM</div>
+                            <div class="info-value" id="detailLastContact">—</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="action-buttons">
-                    <button class="btn-primary" onclick="showAccessScreen('TC-3821', 'Robert Williams', '12 Riverside Court, Leeds')">Respond to Alarm</button>
+                    <button class="btn-primary" onclick="showAccessScreenFromDetail()">Respond to Alarm</button>
                     <button class="btn-secondary" onclick="showAlarmList()">Cancel</button>
                 </div>
             </div>
@@ -1273,6 +1246,14 @@
                                 <input type="text" class="config-input alarm-medical" value="Osteoporosis, Hypertension" placeholder="e.g., Diabetes, Hypertension">
                             </div>
                             <div class="config-field">
+                                <label class="config-label">Time on Alarm List</label>
+                                <input type="text" class="config-input alarm-list-time" value="09:34" placeholder="e.g., 09:34">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Last Contact (detail)</label>
+                                <input type="text" class="config-input alarm-last-contact" value="" placeholder="Optional, e.g. Yesterday, 6:30 PM">
+                            </div>
+                            <div class="config-field">
                                 <label class="config-label">Deeplink Command</label>
                                 <textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-2047">qiaccess://client/TC-2047</textarea>
                             </div>
@@ -1313,6 +1294,14 @@
                                 <input type="text" class="config-input alarm-medical" value="Diabetes Type 2, Mobility Issues" placeholder="e.g., Diabetes, Mobility Issues">
                             </div>
                             <div class="config-field">
+                                <label class="config-label">Time on Alarm List</label>
+                                <input type="text" class="config-input alarm-list-time" value="08:52" placeholder="e.g., 08:52">
+                            </div>
+                            <div class="config-field">
+                                <label class="config-label">Last Contact (detail)</label>
+                                <input type="text" class="config-input alarm-last-contact" value="Yesterday, 6:30 PM" placeholder="Optional">
+                            </div>
+                            <div class="config-field">
                                 <label class="config-label">Deeplink Command</label>
                                 <textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-3821">qiaccess://client/TC-3821</textarea>
                             </div>
@@ -1325,7 +1314,7 @@
                     </button>
 
                     <div class="config-note">
-                        <strong>Note:</strong> Changes will update the alarm list in real-time. The deeplink command will be used when opening QiAccess for each specific client.
+                        <strong>Note:</strong> Tap <strong>Save Changes</strong> to update the alarm list and detail screens and to store settings on this device.
                     </div>
                 </div>
 
@@ -1340,31 +1329,234 @@
     <!-- Deeplink Simulation Overlay - REMOVED (now triggers real deeplink) -->
 
     <script>
+        const STORAGE_KEY = 'telecare_responder_config_v1';
+
+        let currentAlarmIndex = 0;
         let currentClientId = '';
         let currentClientName = '';
         let currentAddress = '';
         let currentDeeplink = '';
         let alarmData = [];
 
-        // Initialize alarm data from DOM on page load
-        function initializeAlarmData() {
-            alarmData = [];
-            const alarmConfigItems = document.querySelectorAll('.alarm-config-item');
-            alarmConfigItems.forEach((item, index) => {
-                const data = {
-                    name: item.querySelector('.alarm-client-name').value,
-                    clientId: item.querySelector('.alarm-client-id').value,
-                    alertType: item.querySelector('.alarm-alert-type').value,
-                    address: item.querySelector('.alarm-address').value,
-                    priority: item.querySelector('.alarm-priority').value,
-                    medical: item.querySelector('.alarm-medical').value,
-                    deeplink: item.querySelector('.alarm-deeplink').value
-                };
-                alarmData.push(data);
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str == null ? '' : String(str);
+            return d.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
+        function normalizeAlarm(a) {
+            return {
+                name: a.name ?? '',
+                clientId: a.clientId ?? '',
+                alertType: a.alertType ?? '',
+                address: a.address ?? '',
+                priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium',
+                medical: a.medical ?? '',
+                deeplink: a.deeplink ?? '',
+                listTime: a.listTime ?? '',
+                lastContact: a.lastContact ?? ''
+            };
+        }
+
+        function readAlarmFromItem(item) {
+            return normalizeAlarm({
+                name: item.querySelector('.alarm-client-name').value,
+                clientId: item.querySelector('.alarm-client-id').value,
+                alertType: item.querySelector('.alarm-alert-type').value,
+                address: item.querySelector('.alarm-address').value,
+                priority: item.querySelector('.alarm-priority').value,
+                medical: item.querySelector('.alarm-medical').value,
+                deeplink: item.querySelector('.alarm-deeplink').value,
+                listTime: item.querySelector('.alarm-list-time') ? item.querySelector('.alarm-list-time').value : '',
+                lastContact: item.querySelector('.alarm-last-contact') ? item.querySelector('.alarm-last-contact').value : ''
             });
         }
 
-        // Menu functions
+        function priorityVisuals(priority) {
+            if (priority === 'high') {
+                return {
+                    color: '#E53E3E',
+                    iconBg: 'linear-gradient(135deg, #E53E3E 0%, #F56565 100%)',
+                    iconShadow: '0 4px 12px rgba(229, 62, 62, 0.3)',
+                    icon: '⚠️'
+                };
+            }
+            if (priority === 'low') {
+                return {
+                    color: '#38A169',
+                    iconBg: 'linear-gradient(135deg, #38A169 0%, #48BB78 100%)',
+                    iconShadow: '0 4px 12px rgba(56, 161, 105, 0.3)',
+                    icon: '✓'
+                };
+            }
+            return {
+                color: '#DD6B20',
+                iconBg: 'linear-gradient(135deg, #F6AD55 0%, #ED8936 100%)',
+                iconShadow: '0 4px 12px rgba(246, 173, 85, 0.3)',
+                icon: '📋'
+            };
+        }
+
+        function priorityLongLabel(priority) {
+            if (priority === 'high') return 'High - Immediate Response Required';
+            if (priority === 'low') return 'Low - Standard Response';
+            return 'Medium - Welfare Check Required';
+        }
+
+        function shortAddressLine(address) {
+            const s = String(address || '').trim();
+            if (!s) return '—';
+            const i = s.indexOf(',');
+            return i === -1 ? s : s.slice(0, i).trim();
+        }
+
+        function formatDetailTimeReceived(alarm) {
+            const t = (alarm.listTime || '').trim();
+            if (!t) return '—';
+            const tf = document.getElementById('configTimeFormat').value;
+            if (tf === '24h') return 'Today, ' + t;
+            if (/\b(am|pm)\b/i.test(t)) return 'Today, ' + t;
+            return 'Today, ' + t + ' AM';
+        }
+
+        function populateDetailScreen(index) {
+            const alarm = alarmData[index];
+            if (!alarm) return;
+
+            const v = priorityVisuals(alarm.priority);
+            const iconEl = document.getElementById('detailAlarmIcon');
+            iconEl.textContent = v.icon;
+            iconEl.style.background = v.iconBg;
+            iconEl.style.boxShadow = v.iconShadow;
+
+            const typeEl = document.getElementById('detailCategory');
+            typeEl.textContent = alarm.alertType || 'Alert';
+            typeEl.style.color = v.color;
+
+            document.getElementById('detailClientName').textContent = alarm.name || '—';
+            document.getElementById('detailAlertType').textContent = alarm.alertType || '—';
+            document.getElementById('detailTimeReceived').textContent = formatDetailTimeReceived(alarm);
+            document.getElementById('detailAddress').textContent = alarm.address || '—';
+            document.getElementById('detailClientId').textContent = alarm.clientId || '—';
+
+            const prEl = document.getElementById('detailPriority');
+            prEl.textContent = priorityLongLabel(alarm.priority);
+            prEl.style.color = v.color;
+
+            document.getElementById('detailMedical').textContent = alarm.medical || '—';
+
+            const lastRow = document.getElementById('detailLastContactRow');
+            const lastVal = (alarm.lastContact || '').trim();
+            if (lastVal) {
+                lastRow.classList.remove('hidden');
+                document.getElementById('detailLastContact').textContent = lastVal;
+            } else {
+                lastRow.classList.add('hidden');
+            }
+        }
+
+        function buildAlarmConfigItemHtml(alarm, index) {
+            const a = normalizeAlarm(alarm);
+            const borderStyle = index % 2 === 1 ? ' style="border-left-color: #F6AD55;"' : '';
+            const high = a.priority === 'high' ? ' selected' : '';
+            const med = a.priority === 'medium' ? ' selected' : '';
+            const low = a.priority === 'low' ? ' selected' : '';
+            return (
+                '<div class="alarm-config-item" data-alarm-index="' + index + '"' + borderStyle + '>' +
+                    '<div class="alarm-config-header">' +
+                        '<div class="alarm-config-title">Alarm ' + (index + 1) + '</div>' +
+                        '<button type="button" class="btn-remove-alarm" onclick="removeAlarm(' + index + ')">Remove</button>' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Client Name</label>' +
+                        '<input type="text" class="config-input alarm-client-name" value="' + escapeAttr(a.name) + '" placeholder="Enter client name">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Client ID</label>' +
+                        '<input type="text" class="config-input alarm-client-id" value="' + escapeAttr(a.clientId) + '" placeholder="e.g., TC-2047">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Alert Type</label>' +
+                        '<input type="text" class="config-input alarm-alert-type" value="' + escapeAttr(a.alertType) + '" placeholder="e.g., Fall detected">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Address</label>' +
+                        '<input type="text" class="config-input alarm-address" value="' + escapeAttr(a.address) + '" placeholder="Full address">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Priority Level</label>' +
+                        '<select class="config-input config-select alarm-priority">' +
+                            '<option value="high"' + high + '>High</option>' +
+                            '<option value="medium"' + med + '>Medium</option>' +
+                            '<option value="low"' + low + '>Low</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Medical Conditions</label>' +
+                        '<input type="text" class="config-input alarm-medical" value="' + escapeAttr(a.medical) + '" placeholder="e.g., Diabetes, Hypertension">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Time on Alarm List</label>' +
+                        '<input type="text" class="config-input alarm-list-time" value="' + escapeAttr(a.listTime) + '" placeholder="e.g., 09:34">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Last Contact (detail)</label>' +
+                        '<input type="text" class="config-input alarm-last-contact" value="' + escapeAttr(a.lastContact) + '" placeholder="Optional">' +
+                    '</div>' +
+                    '<div class="config-field">' +
+                        '<label class="config-label">Deeplink Command</label>' +
+                        '<textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-0000">' + escapeHtml(a.deeplink) + '</textarea>' +
+                    '</div>' +
+                '</div>'
+            );
+        }
+
+        function persistConfigToLocalStorage() {
+            try {
+                const payload = {
+                    version: 1,
+                    country: document.getElementById('configCountry').value,
+                    timeFormat: document.getElementById('configTimeFormat').value,
+                    alarms: alarmData.map(normalizeAlarm)
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (e) {
+                console.warn('Could not save settings', e);
+            }
+        }
+
+        function loadConfigFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (!data || !Array.isArray(data.alarms) || data.alarms.length < 1) return false;
+
+                document.getElementById('configCountry').value = data.country || 'UK';
+                document.getElementById('configTimeFormat').value = data.timeFormat || '12h';
+
+                const container = document.getElementById('alarmsConfigContainer');
+                container.innerHTML = data.alarms.map(function (a, i) {
+                    return buildAlarmConfigItemHtml(normalizeAlarm(a), i);
+                }).join('');
+                return true;
+            } catch (e) {
+                console.warn('Could not load settings', e);
+                return false;
+            }
+        }
+
+        function initializeAlarmData() {
+            alarmData = [];
+            document.querySelectorAll('.alarm-config-item').forEach(function (item) {
+                alarmData.push(readAlarmFromItem(item));
+            });
+        }
+
         function toggleMenu() {
             const drawer = document.getElementById('menuDrawer');
             const overlay = document.getElementById('menuOverlay');
@@ -1379,7 +1571,6 @@
             overlay.classList.remove('active');
         }
 
-        // Configuration functions
         function showConfiguration() {
             initializeAlarmData();
             hideAllScreens();
@@ -1392,30 +1583,13 @@
         }
 
         function saveConfiguration() {
-            // Update alarm data from config form
-            const alarmConfigItems = document.querySelectorAll('.alarm-config-item');
             alarmData = [];
-            
-            alarmConfigItems.forEach((item) => {
-                const data = {
-                    name: item.querySelector('.alarm-client-name').value,
-                    clientId: item.querySelector('.alarm-client-id').value,
-                    alertType: item.querySelector('.alarm-alert-type').value,
-                    address: item.querySelector('.alarm-address').value,
-                    priority: item.querySelector('.alarm-priority').value,
-                    medical: item.querySelector('.alarm-medical').value,
-                    deeplink: item.querySelector('.alarm-deeplink').value
-                };
-                alarmData.push(data);
+            document.querySelectorAll('.alarm-config-item').forEach(function (item) {
+                alarmData.push(readAlarmFromItem(item));
             });
 
-            // Rebuild alarm list
-            rebuildAlarmList();
-            
-            // Show success message
+            persistConfigToLocalStorage();
             alert('Configuration saved successfully!');
-            
-            // Return to alarm list
             showAlarmList();
         }
 
@@ -1423,91 +1597,60 @@
             const alarmListContainer = document.getElementById('screen1');
             alarmListContainer.innerHTML = '';
 
-            alarmData.forEach((alarm, index) => {
-                const priorityColor = alarm.priority === 'high' ? '#E53E3E' : 
-                                     alarm.priority === 'medium' ? '#F6AD55' : '#48BB78';
-                const priorityBgColor = alarm.priority === 'high' ? 'rgba(229, 62, 62, 0.1)' : 
-                                       alarm.priority === 'medium' ? 'rgba(246, 173, 85, 0.1)' : 
-                                       'rgba(56, 161, 105, 0.1)';
+            alarmData.forEach(function (alarm, index) {
+                const priorityColor = alarm.priority === 'high' ? '#E53E3E' :
+                    alarm.priority === 'medium' ? '#F6AD55' : '#48BB78';
+                const priorityBgColor = alarm.priority === 'high' ? 'rgba(229, 62, 62, 0.1)' :
+                    alarm.priority === 'medium' ? 'rgba(246, 173, 85, 0.1)' :
+                        'rgba(56, 161, 105, 0.1)';
                 const priorityLabel = alarm.priority.charAt(0).toUpperCase() + alarm.priority.slice(1);
-                
-                const card = `
-                    <div class="alarm-card" style="border-left-color: ${priorityColor};" onclick="showAlarmDetailDynamic(${index})">
-                        <div class="alarm-header">
-                            <div class="alarm-type" style="background: ${priorityBgColor}; color: ${priorityColor};">${alarm.alertType}</div>
-                            <div class="alarm-time">09:34</div>
-                        </div>
-                        <div class="alarm-client">${alarm.name}</div>
-                        <div class="alarm-details">
-                            <div class="alarm-detail-row">
-                                <span class="alarm-detail-label">Address:</span>
-                                <span>${alarm.address.split(',')[0]}</span>
-                            </div>
-                            <div class="alarm-detail-row">
-                                <span class="alarm-detail-label">Alert:</span>
-                                <span>${alarm.alertType}</span>
-                            </div>
-                            <div class="alarm-detail-row">
-                                <span class="alarm-detail-label">Priority:</span>
-                                <span style="color: ${priorityColor}; font-weight: 600;">${priorityLabel}</span>
-                            </div>
-                        </div>
-                        <div class="alarm-actions">
-                            <button class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetailDynamic(${index})">Accept</button>
-                            <button class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>
-                        </div>
-                    </div>
-                `;
-                alarmListContainer.innerHTML += card;
+                const listTime = (alarm.listTime || '').trim() || '—';
+
+                const card =
+                    '<div class="alarm-card" style="border-left-color: ' + priorityColor + ';" onclick="showAlarmDetailForIndex(' + index + ')">' +
+                        '<div class="alarm-header">' +
+                            '<div class="alarm-type" style="background: ' + priorityBgColor + '; color: ' + priorityColor + ';">' + escapeHtml(alarm.alertType) + '</div>' +
+                            '<div class="alarm-time">' + escapeHtml(listTime) + '</div>' +
+                        '</div>' +
+                        '<div class="alarm-client">' + escapeHtml(alarm.name) + '</div>' +
+                        '<div class="alarm-details">' +
+                            '<div class="alarm-detail-row">' +
+                                '<span class="alarm-detail-label">Address:</span>' +
+                                '<span>' + escapeHtml(shortAddressLine(alarm.address)) + '</span>' +
+                            '</div>' +
+                            '<div class="alarm-detail-row">' +
+                                '<span class="alarm-detail-label">Alert:</span>' +
+                                '<span>' + escapeHtml(alarm.alertType) + '</span>' +
+                            '</div>' +
+                            '<div class="alarm-detail-row">' +
+                                '<span class="alarm-detail-label">Priority:</span>' +
+                                '<span style="color: ' + priorityColor + '; font-weight: 600;">' + escapeHtml(priorityLabel) + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="alarm-actions">' +
+                            '<button type="button" class="btn btn-accept" onclick="event.stopPropagation(); showAlarmDetailForIndex(' + index + ')">Accept</button>' +
+                            '<button type="button" class="btn btn-reject" onclick="event.stopPropagation()">Reject</button>' +
+                        '</div>' +
+                    '</div>';
+                alarmListContainer.insertAdjacentHTML('beforeend', card);
             });
         }
 
         function addAlarm() {
             const container = document.getElementById('alarmsConfigContainer');
             const newIndex = document.querySelectorAll('.alarm-config-item').length;
-            
-            const newAlarmHtml = `
-                <div class="alarm-config-item" data-alarm-index="${newIndex}">
-                    <div class="alarm-config-header">
-                        <div class="alarm-config-title">Alarm ${newIndex + 1}</div>
-                        <button class="btn-remove-alarm" onclick="removeAlarm(${newIndex})">Remove</button>
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Client Name</label>
-                        <input type="text" class="config-input alarm-client-name" value="" placeholder="Enter client name">
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Client ID</label>
-                        <input type="text" class="config-input alarm-client-id" value="" placeholder="e.g., TC-0000">
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Alert Type</label>
-                        <input type="text" class="config-input alarm-alert-type" value="" placeholder="e.g., Emergency alert">
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Address</label>
-                        <input type="text" class="config-input alarm-address" value="" placeholder="Full address">
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Priority Level</label>
-                        <select class="config-input config-select alarm-priority">
-                            <option value="high">High</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="low">Low</option>
-                        </select>
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Medical Conditions</label>
-                        <input type="text" class="config-input alarm-medical" value="" placeholder="e.g., Diabetes, Hypertension">
-                    </div>
-                    <div class="config-field">
-                        <label class="config-label">Deeplink Command</label>
-                        <textarea class="config-input config-textarea alarm-deeplink" placeholder="e.g., qiaccess://client/TC-0000"></textarea>
-                    </div>
-                </div>
-            `;
-            
-            container.insertAdjacentHTML('beforeend', newAlarmHtml);
+            const blank = normalizeAlarm({
+                name: '',
+                clientId: '',
+                alertType: '',
+                address: '',
+                priority: 'medium',
+                medical: '',
+                deeplink: '',
+                listTime: '12:00',
+                lastContact: ''
+            });
+            container.insertAdjacentHTML('beforeend', buildAlarmConfigItemHtml(blank, newIndex));
         }
 
         function removeAlarm(index) {
@@ -1516,88 +1659,58 @@
                 alert('You must have at least one alarm configured.');
                 return;
             }
-            
+
             if (confirm('Are you sure you want to remove this alarm?')) {
                 items[index].remove();
-                // Re-index remaining alarms
-                document.querySelectorAll('.alarm-config-item').forEach((item, i) => {
+                document.querySelectorAll('.alarm-config-item').forEach(function (item, i) {
                     item.setAttribute('data-alarm-index', i);
-                    item.querySelector('.alarm-config-title').textContent = `Alarm ${i + 1}`;
-                    item.querySelector('.btn-remove-alarm').setAttribute('onclick', `removeAlarm(${i})`);
+                    item.querySelector('.alarm-config-title').textContent = 'Alarm ' + (i + 1);
+                    item.querySelector('.btn-remove-alarm').setAttribute('onclick', 'removeAlarm(' + i + ')');
                 });
             }
         }
 
-        // Navigation functions
         function hideAllScreens() {
             document.getElementById('screen1').classList.add('hidden');
             document.getElementById('screen2').classList.add('hidden');
             document.getElementById('screen2').classList.remove('active');
-            document.getElementById('screen2b').classList.add('hidden');
-            document.getElementById('screen2b').classList.remove('active');
             document.getElementById('screen3').classList.add('hidden');
             document.getElementById('screen3').classList.remove('active');
             document.getElementById('configScreen').classList.remove('active');
         }
 
-        function showAlarmDetail() {
+        function showAlarmDetailForIndex(index) {
             if (alarmData.length === 0) initializeAlarmData();
-            
-            currentClientId = alarmData[0].clientId;
-            currentClientName = alarmData[0].name;
-            currentAddress = alarmData[0].address;
-            currentDeeplink = alarmData[0].deeplink;
-            
+            if (index < 0 || index >= alarmData.length) return;
+
+            const alarm = alarmData[index];
+            currentAlarmIndex = index;
+            currentClientId = alarm.clientId;
+            currentClientName = alarm.name;
+            currentAddress = alarm.address;
+            currentDeeplink = alarm.deeplink;
+
+            populateDetailScreen(index);
+
             hideAllScreens();
             document.getElementById('screen2').classList.remove('hidden');
             document.getElementById('screen2').classList.add('active');
             document.querySelector('.nav-title').textContent = 'Alarm Detail';
         }
 
-        function showAlarmDetail2() {
-            if (alarmData.length === 0) initializeAlarmData();
-            
-            currentClientId = alarmData[1].clientId;
-            currentClientName = alarmData[1].name;
-            currentAddress = alarmData[1].address;
-            currentDeeplink = alarmData[1].deeplink;
-            
-            hideAllScreens();
-            document.getElementById('screen2b').classList.remove('hidden');
-            document.getElementById('screen2b').classList.add('active');
-            document.querySelector('.nav-title').textContent = 'Alarm Detail';
-        }
-
-        function showAlarmDetailDynamic(index) {
-            if (alarmData.length === 0) initializeAlarmData();
-            
-            const alarm = alarmData[index];
-            currentClientId = alarm.clientId;
-            currentClientName = alarm.name;
-            currentAddress = alarm.address;
-            currentDeeplink = alarm.deeplink;
-            
-            // Use screen2 for first alarm, screen2b for second
-            if (index === 0) {
-                showAlarmDetail();
-            } else if (index === 1) {
-                showAlarmDetail2();
-            } else {
-                // For additional alarms, reuse screen2 but update content
-                showAlarmDetail();
-            }
+        function showAccessScreenFromDetail() {
+            showAccessScreen(currentClientId, currentClientName, currentAddress);
         }
 
         function showAccessScreen(clientId, clientName, address) {
             currentClientId = clientId || currentClientId;
             currentClientName = clientName || currentClientName;
             currentAddress = address || currentAddress;
-            
-            // Update the access screen with current client data
+
             document.getElementById('clientName').textContent = currentClientName;
             document.getElementById('clientAddress').textContent = currentAddress;
-            document.getElementById('accessProperty').textContent = currentAddress.split(',')[0];
-            
+            document.getElementById('accessProperty').textContent = shortAddressLine(currentAddress);
+
             hideAllScreens();
             document.getElementById('screen3').classList.remove('hidden');
             document.getElementById('screen3').classList.add('active');
@@ -1605,29 +1718,22 @@
         }
 
         function showAlarmList() {
+            initializeAlarmData();
+            rebuildAlarmList();
             hideAllScreens();
             document.getElementById('screen1').classList.remove('hidden');
             document.querySelector('.nav-title').textContent = 'Alarms';
         }
 
         function triggerDeeplink() {
-            // Actually trigger the deeplink to open QiAccess app
-            console.log(`Deeplink triggered: ${currentDeeplink}`);
-            
-            // This will attempt to open the QiAccess app with the configured deeplink
+            console.log('Deeplink triggered: ' + currentDeeplink);
             window.location.href = currentDeeplink;
-            
-            // Fallback: If the app doesn't open after a short delay, you could redirect to a fallback URL
-            // Uncomment below if you want a fallback behavior:
-            // setTimeout(() => {
-            //     // Fallback URL if app doesn't open (e.g., App Store or error page)
-            //     // window.location.href = 'https://yourfallbackurl.com';
-            // }, 2000);
         }
 
-        // Initialize on page load
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', function () {
+            loadConfigFromLocalStorage();
             initializeAlarmData();
+            rebuildAlarmList();
         });
     </script>
 </body>
